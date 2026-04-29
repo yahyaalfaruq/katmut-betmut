@@ -103,7 +103,8 @@ io.on('connection', (socket) => {
 });
 
 // Handle SPA routing - send all other requests to index.html
-app.get('(.*)', (req, res) => {
+// Using app.use() as a catch-all middleware to avoid Express 5 wildcard syntax issues
+app.use((req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
