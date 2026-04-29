@@ -1,0 +1,8 @@
+node_modules
+dist
+dist-ssr
+*.local
+.vercel
+.vscode
+.DS_Store
+package-lock.json

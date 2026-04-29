@@ -432,12 +432,27 @@ function App() {
           </motion.div>
         </div>
       ) : (
-        <div className="screen">
-          <header className="glass-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{user.id === 'katmut' ? '🐸' : '🐤'}</div>
-              <div><h3 style={{ fontSize: '16px', fontWeight: '800' }}>{user.name}</h3><p style={{ fontSize: '10px', opacity: 0.4 }}>Sedang Petualangan</p></div>
-            </div>
+        <>
+          <nav className="main-nav">
+            {[
+              { id: 'home', icon: Home },
+              { id: 'chat', icon: MessageCircle },
+              { id: 'photobooth', icon: Camera },
+              { id: 'articles', icon: Newspaper },
+              { id: 'gallery', icon: Image },
+              { id: 'games', icon: Gamepad2 },
+            ].map(t => (
+              <div key={t.id} className={`nav-btn ${activeTab === t.id ? 'active' : ''}`} onClick={() => setActiveTab(t.id)}>
+                <t.icon size={20} />
+              </div>
+            ))}
+          </nav>
+          <div className="screen">
+            <header className="glass-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{user.id === 'katmut' ? '🐸' : '🐤'}</div>
+                <div><h3 style={{ fontSize: '16px', fontWeight: '800' }}>{user.name}</h3><p style={{ fontSize: '10px', opacity: 0.4 }}>Sedang Petualangan</p></div>
+              </div>
             <div style={{ display: 'flex', gap: '10px' }}>
                <button onClick={() => setIsCalling(true)} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}><Phone size={20} color="#94a3b8" /></button>
                <button onClick={startVideoCall} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}><Video size={20} color="#94a3b8" /></button>
@@ -497,15 +512,74 @@ function App() {
 
           <div className="scroll-area" ref={scrollRef}>
             {activeTab === 'home' && (
-              <div>
-                <h3 style={{ fontWeight: '800', marginBottom: '1rem' }}>Misi Hari Ini 🚀</h3>
-                <div className="progress-container"><div className="progress-bar" style={{ width: `${(tasks.filter(t => t.done).length / tasks.length) * 100}%` }} /></div>
-                {tasks.map(t => (
-                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '1rem', background: '#fff', borderRadius: '15px', marginBottom: '10px' }} onClick={() => setTasks(tasks.map(x => x.id === t.id ? {...x, done: !x.done} : x))}>
-                     {t.done ? <CheckCircle2 color="var(--primary)" /> : <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: '2px solid #e2e8f0' }} />}
-                     <span style={{ textDecoration: t.done ? 'line-through' : 'none', opacity: t.done ? 0.4 : 1 }}>{t.text}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '20px' }}>
+                {/* Greeting Card */}
+                <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} style={{ background: 'linear-gradient(135deg, var(--primary) 0%, #34d399 100%)', borderRadius: '24px', padding: '24px', color: '#fff', position: 'relative', overflow: 'hidden', boxShadow: '0 10px 25px rgba(38, 222, 129, 0.3)' }}>
+                  <div style={{ position: 'relative', zIndex: 2 }}>
+                    <p style={{ fontSize: '14px', opacity: 0.9, marginBottom: '5px' }}>Selamat datang kembali,</p>
+                    <h2 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '10px' }}>{user.name}! {user.id === 'katmut' ? '🐸' : '🐤'}</h2>
+                    <p style={{ fontSize: '12px', background: 'rgba(255,255,255,0.2)', display: 'inline-block', padding: '5px 12px', borderRadius: '20px', backdropFilter: 'blur(5px)' }}>Hari yang cerah untuk berpetualang ☀️</p>
                   </div>
-                ))}
+                  <div style={{ position: 'absolute', right: '-20px', bottom: '-20px', fontSize: '100px', opacity: 0.2, transform: 'rotate(-15deg)', zIndex: 1 }}>
+                    {user.id === 'katmut' ? '🐸' : '🐤'}
+                  </div>
+                </motion.div>
+
+                {/* Stats Row */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                  {[
+                    { label: 'Pesan', value: messages.length, icon: MessageCircle, color: '#3b82f6', bg: '#eff6ff' },
+                    { label: 'Foto', value: galleryImages.length, icon: Image, color: '#ec4899', bg: '#fdf2f8' },
+                    { label: 'Misi', value: `${tasks.filter(t => t.done).length}/${tasks.length}`, icon: Trophy, color: '#f59e0b', bg: '#fffbeb' },
+                  ].map((stat, i) => (
+                    <motion.div key={i} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: i * 0.1 }} style={{ background: stat.bg, padding: '15px 10px', borderRadius: '20px', textAlign: 'center', border: `1px solid ${stat.color}30` }}>
+                      <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: `${stat.color}20`, color: stat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 8px' }}>
+                        <stat.icon size={16} />
+                      </div>
+                      <h4 style={{ fontSize: '18px', fontWeight: '900', color: stat.color, marginBottom: '2px' }}>{stat.value}</h4>
+                      <p style={{ fontSize: '10px', fontWeight: '700', color: '#64748b' }}>{stat.label}</p>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Quick Actions */}
+                <div>
+                  <h3 style={{ fontWeight: '800', fontSize: '16px', marginBottom: '12px', color: '#334155' }}>Akses Cepat ⚡</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+                    {[
+                      { label: 'Telepon', icon: Video, color: '#10b981', action: startVideoCall },
+                      { label: 'Kamera', icon: Camera, color: '#8b5cf6', action: () => setActiveTab('photobooth') },
+                      { label: 'Galeri', icon: Heart, color: '#f43f5e', action: () => setActiveTab('gallery') },
+                      { label: 'Main', icon: Gamepad2, color: '#f59e0b', action: () => setActiveTab('games') },
+                    ].map((btn, i) => (
+                      <motion.div key={i} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={btn.action} style={{ background: '#fff', padding: '12px 5px', borderRadius: '16px', textAlign: 'center', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
+                        <div style={{ background: btn.color, width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', margin: '0 auto 8px', boxShadow: `0 4px 10px ${btn.color}40` }}>
+                          <btn.icon size={20} />
+                        </div>
+                        <p style={{ fontSize: '10px', fontWeight: '800', color: '#475569' }}>{btn.label}</p>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Mini Missions */}
+                <div style={{ background: '#fff', padding: '20px', borderRadius: '24px', boxShadow: '0 10px 25px rgba(0,0,0,0.03)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                    <h3 style={{ fontWeight: '800', fontSize: '16px', color: '#334155' }}>Misi Hari Ini 🎯</h3>
+                    <span style={{ fontSize: '12px', fontWeight: '800', color: 'var(--primary)', background: 'rgba(38, 222, 129, 0.1)', padding: '4px 10px', borderRadius: '12px' }}>
+                      {Math.round((tasks.filter(t => t.done).length / tasks.length) * 100)}%
+                    </span>
+                  </div>
+                  <div className="progress-container" style={{ height: '6px', marginBottom: '15px' }}><div className="progress-bar" style={{ width: `${(tasks.filter(t => t.done).length / tasks.length) * 100}%` }} /></div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {tasks.map(t => (
+                      <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: t.done ? '#f8fafc' : '#f1f5f9', borderRadius: '12px', cursor: 'pointer', border: '1px solid transparent', borderColor: t.done ? 'transparent' : '#e2e8f0' }} onClick={() => setTasks(tasks.map(x => x.id === t.id ? {...x, done: !x.done} : x))}>
+                         {t.done ? <CheckCircle2 size={18} color="var(--primary)" /> : <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: '2px solid #cbd5e1' }} />}
+                         <span style={{ fontSize: '13px', fontWeight: '600', textDecoration: t.done ? 'line-through' : 'none', color: t.done ? '#94a3b8' : '#334155' }}>{t.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -690,21 +764,8 @@ function App() {
             </div>
           )}
 
-          <nav style={{ height: '70px', background: '#fff', display: 'flex', justifyContent: 'space-around', alignItems: 'center', borderTop: '1px solid #f1f5f9' }}>
-            {[
-              { id: 'home', icon: Home },
-              { id: 'chat', icon: MessageCircle },
-              { id: 'photobooth', icon: Camera },
-              { id: 'articles', icon: Newspaper },
-              { id: 'gallery', icon: Image },
-              { id: 'games', icon: Gamepad2 },
-            ].map(t => (
-              <div key={t.id} className={`nav-btn ${activeTab === t.id ? 'active' : ''}`} onClick={() => setActiveTab(t.id)}>
-                <t.icon size={20} />
-              </div>
-            ))}
-          </nav>
         </div>
+        </>
       )}
     </div>
   )
