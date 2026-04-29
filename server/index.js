@@ -2,9 +2,17 @@ import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(cors());
+
+// Serve static files from the "dist" directory (Vite build output)
+app.use(express.static(path.join(__dirname, '../dist')));
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -92,6 +100,11 @@ io.on('connection', (socket) => {
       }
     }
   });
+});
+
+// Handle SPA routing - send all other requests to index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
 const PORT = process.env.PORT || 3001;

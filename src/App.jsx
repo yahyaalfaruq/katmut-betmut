@@ -124,7 +124,8 @@ function App() {
   useEffect(() => {
     if (user) {
       import('socket.io-client').then(({ io }) => {
-        const newSocket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
+        const socketUrl = import.meta.env.VITE_BACKEND_URL || (import.meta.env.DEV ? 'http://localhost:3001' : window.location.origin);
+        const newSocket = io(socketUrl);
         setSocket(newSocket);
         newSocket.emit('register', user.id);
 
