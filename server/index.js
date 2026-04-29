@@ -103,7 +103,7 @@ io.on('connection', (socket) => {
 });
 
 // Handle SPA routing - send all other requests to index.html
-app.get('/*', (req, res) => {
+app.get('/:path*', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
