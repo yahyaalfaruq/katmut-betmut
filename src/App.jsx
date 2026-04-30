@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { MessageCircle, Image, History, Phone, Video, Heart, Settings, Home, Send, Sparkles, X, Mic, MicOff, Camera, Paperclip, CheckCircle2, Trophy, Gamepad2, BookOpen, Trash2, Plus, LogOut, Newspaper, Monitor } from 'lucide-react'
+import { MessageCircle, Image, History, Phone, Video, Heart, Settings, Home, Send, Sparkles, X, Mic, MicOff, Camera, Paperclip, CheckCircle2, Trophy, Gamepad2, BookOpen, Trash2, Plus, LogOut, Newspaper, Monitor, ChevronDown, Smile } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 function App() {
@@ -868,18 +868,26 @@ function App() {
               <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
                 <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '5px' }}>
                   {messages.map(m => (
-                    <div key={m.id} style={{ alignSelf: m.sender === user.id ? 'flex-end' : 'flex-start', maxWidth: '80%', position: 'relative' }} className="msg-container">
+                    <div key={m.id} style={{ alignSelf: m.sender === user.id ? 'flex-end' : 'flex-start', maxWidth: '85%', position: 'relative', display: 'flex', alignItems: 'center', gap: '8px', marginRight: m.sender === user.id ? '12px' : '0' }} className="msg-container">
+                      {m.sender !== user.id && <button style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.3 }}><Smile size={16} /></button>}
+                      
                       {m.type === 'call-log' ? (
                         <div style={{ background: 'rgba(0,0,0,0.05)', padding: '5px 15px', borderRadius: '15px', fontSize: '11px', margin: '10px 0', textAlign: 'center', alignSelf: 'center', color: '#64748b' }}>
                            📹 {m.text}
                         </div>
                       ) : (
-                        <>
-                          <div className={`bubble ${m.sender === user.id ? 'me' : 'them'}`} style={{ marginBottom: '2px', cursor: 'pointer', position: 'relative' }} onClick={() => m.sender === user.id && setActiveMessageMenu(activeMessageMenu === m.id ? null : m.id)}>
+                        <div style={{ position: 'relative' }}>
+                          <div className={`bubble ${m.sender === user.id ? 'me' : 'them'}`} style={{ marginBottom: '2px', cursor: 'pointer', position: 'relative', paddingRight: m.sender === user.id ? '30px' : '15px' }} onClick={() => m.sender === user.id && setActiveMessageMenu(activeMessageMenu === m.id ? null : m.id)}>
                             {m.type === 'text' && m.text}
                             {m.type === 'image' && <img src={m.url} style={{ maxWidth: '100%', borderRadius: '10px' }} />}
+                            {m.sender === user.id && (
+                              <div style={{ position: 'absolute', top: '8px', right: '8px', opacity: 0.3 }}>
+                                <ChevronDown size={14} />
+                              </div>
+                            )}
                             {m.edited && <span style={{ fontSize: '9px', opacity: 0.5, marginLeft: '5px', display: 'block', textAlign: 'right' }}>diedit</span>}
                           </div>
+                          
                           <AnimatePresence>
                             {activeMessageMenu === m.id && m.sender === user.id && (
                               <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} style={{ display: 'flex', gap: '5px', position: 'absolute', top: '-45px', right: 0, background: '#1e293b', padding: '5px 10px', borderRadius: '15px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', zIndex: 100, border: '1px solid rgba(255,255,255,0.1)' }}>
@@ -889,8 +897,10 @@ function App() {
                               </motion.div>
                             )}
                           </AnimatePresence>
-                        </>
+                        </div>
                       )}
+
+                      {m.sender === user.id && <button style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.3 }}><Smile size={16} /></button>}
                     </div>
                   ))}
                   <div ref={scrollRef} />
