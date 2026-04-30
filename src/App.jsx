@@ -7,7 +7,7 @@ function App() {
   const [selectedChar, setSelectedChar] = useState(null)
   const [password, setPassword] = useState('')
   
-  const [activeTab, setActiveTab] = useState('chat')
+  const [activeTab, setActiveTab] = useState('home')
   const [isCalling, setIsCalling] = useState(false)
   const [isVideoCalling, setIsVideoCalling] = useState(false)
   const [socket, setSocket] = useState(null)
@@ -151,6 +151,16 @@ function App() {
 
         newSocket.on('call-ended', () => {
           endCallLocally();
+        });
+
+        newSocket.on('game-move', (data) => {
+          setBoard(data.board);
+          setIsXNext(data.isXNext);
+        });
+
+        newSocket.on('game-reset', () => {
+          setBoard(Array(9).fill(null));
+          setIsXNext(true);
         });
       });
     }
@@ -385,6 +395,7 @@ function App() {
     const creds = { katmut: 'katak', betmut: 'bebek' }
     if (creds[selectedChar] === password) {
       setUser({ id: selectedChar, name: selectedChar === 'katmut' ? 'Katmut' : 'Betmut' })
+      setActiveTab('home')
     } else {
       alert("Password salah!")
     }
@@ -394,8 +405,13 @@ function App() {
     if (board[i] || calculateWinner(board)) return
     const newBoard = board.slice()
     newBoard[i] = isXNext ? '🐸' : '🐤'
+    const nextIsX = !isXNext
     setBoard(newBoard)
-    setIsXNext(!isXNext)
+    setIsXNext(nextIsX)
+    
+    if (socket) {
+      socket.emit('game-move', { to: getTargetUser(), board: newBoard, isXNext: nextIsX });
+    }
   }
 
   const calculateWinner = (squares) => {
@@ -628,7 +644,12 @@ function App() {
                 <h3 style={{ fontWeight: '800' }}>Tic-Tac-Toe Imut</h3>
                 <p style={{ opacity: 0.4, fontSize: '12px' }}>{winner ? `Pemenang: ${winner}` : `Giliran: ${isXNext ? '🐸' : '🐤'}`}</p>
                 <div className="game-grid">{board.map((v, i) => <div key={i} className="game-cell" onClick={() => handleGameClick(i)}>{v}</div>)}</div>
-                <button onClick={() => setBoard(Array(9).fill(null))} style={{ padding: '10px 20px', borderRadius: '10px', background: 'var(--primary)', color: '#fff', border: 'none', fontWeight: '800' }}>Mulai Lagi</button>
+                <button onClick={() => {
+                  const emptyBoard = Array(9).fill(null);
+                  setBoard(emptyBoard);
+                  setIsXNext(true);
+                  if (socket) socket.emit('game-reset', { to: getTargetUser() });
+                }} style={{ padding: '10px 20px', borderRadius: '10px', background: 'var(--primary)', color: '#fff', border: 'none', fontWeight: '800' }}>Mulai Lagi</button>
               </div>
             )}
 

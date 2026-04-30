@@ -89,6 +89,21 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Game relay
+  socket.on('game-move', (data) => {
+    const targetSocket = users[data.to];
+    if (targetSocket) {
+      io.to(targetSocket).emit('game-move', data);
+    }
+  });
+
+  socket.on('game-reset', (data) => {
+    const targetSocket = users[data.to];
+    if (targetSocket) {
+      io.to(targetSocket).emit('game-reset');
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
     // Find who disconnected
