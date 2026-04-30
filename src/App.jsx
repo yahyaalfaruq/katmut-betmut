@@ -22,6 +22,16 @@ function App() {
   const [videoActive, setVideoActive] = useState(true)
   const [isScreenSharing, setIsScreenSharing] = useState(false)
   const [facingMode, setFacingMode] = useState('user')
+  const [activeMessageMenu, setActiveMessageMenu] = useState(null)
+  
+  const playSound = (type) => {
+    const sounds = {
+      message: 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3',
+      call: 'https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3'
+    };
+    const audio = new Audio(sounds[type]);
+    audio.play().catch(e => console.log("Sound play blocked:", e));
+  }
   
   const vcVideoRef = useRef(null)
   const vcStreamRef = useRef(null)
@@ -168,6 +178,7 @@ function App() {
 
         newSocket.on('receive-message', (msg) => {
           setMessages(prev => [...prev, msg]);
+          playSound('message');
           if (document.hidden) {
             new Notification(`Pesan baru dari ${msg.sender === 'katmut' ? 'Katmut' : 'Betmut'}`, {
               body: msg.text,
@@ -178,6 +189,7 @@ function App() {
 
         newSocket.on('call-made', async (data) => {
           setIncomingCall(data);
+          playSound('call');
           if (document.hidden) {
             new Notification(`Panggilan dari ${data.from === 'katmut' ? 'Katmut' : 'Betmut'}`, {
               body: 'Klik untuk menjawab panggilan imut ini! 🐸🐤',
@@ -826,17 +838,19 @@ function App() {
                         </div>
                       ) : (
                         <>
-                          <div className={`bubble ${m.sender === user.id ? 'me' : 'them'}`} style={{ marginBottom: '2px', cursor: 'pointer' }} onClick={() => m.sender === user.id && startEdit(m)}>
+                          <div className={`bubble ${m.sender === user.id ? 'me' : 'them'}`} style={{ marginBottom: '2px', cursor: 'pointer', position: 'relative' }} onClick={() => m.sender === user.id && setActiveMessageMenu(activeMessageMenu === m.id ? null : m.id)}>
                             {m.type === 'text' && m.text}
                             {m.type === 'image' && <img src={m.url} style={{ maxWidth: '100%', borderRadius: '10px' }} />}
                             {m.edited && <span style={{ fontSize: '9px', opacity: 0.5, marginLeft: '5px', display: 'block', textAlign: 'right' }}>diedit</span>}
                           </div>
-                          {m.sender === user.id && (
-                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', padding: '0 5px', marginBottom: '8px' }}>
-                              <button onClick={() => startEdit(m)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#94a3b8' }}>Edit</button>
-                              <button onClick={() => deleteMessage(m.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#ef4444' }}>Hapus</button>
-                            </div>
-                          )}
+                          <AnimatePresence>
+                            {activeMessageMenu === m.id && m.sender === user.id && (
+                              <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', padding: '5px', position: 'absolute', bottom: '-25px', right: 0, background: '#fff', borderRadius: '10px', boxShadow: '0 5px 15px rgba(0,0,0,0.1)', zIndex: 10 }}>
+                                <button onClick={() => { startEdit(m); setActiveMessageMenu(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: '#64748b', fontWeight: '800' }}>Edit</button>
+                                <button onClick={() => { deleteMessage(m.id); setActiveMessageMenu(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: '#ef4444', fontWeight: '800' }}>Hapus</button>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </>
                       )}
                     </div>
