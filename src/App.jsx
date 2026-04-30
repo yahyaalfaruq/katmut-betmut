@@ -51,6 +51,7 @@ function App() {
   const canvasRef = useRef(null)
   const streamRef = useRef(null)
   const [inputText, setInputText] = useState('')
+  const [editingMessage, setEditingMessage] = useState(null)
   const [messages, setMessages] = useState(() => {
     const saved = localStorage.getItem('katmut_messages');
     return saved ? JSON.parse(saved) : [
@@ -99,7 +100,7 @@ function App() {
   useEffect(() => {
     if (activeTab === 'photobooth') {
       setCameraError(false);
-      navigator.mediaDevices.getUserMedia({ video: true })
+      navigator.mediaDevices.getUserMedia({ video: { facingMode } })
         .then(s => {
           streamRef.current = s;
           if (videoRef.current) videoRef.current.srcObject = s;
@@ -123,7 +124,7 @@ function App() {
         streamRef.current = null;
       }
     }
-  }, [activeTab]);
+  }, [activeTab, facingMode]);
 
   useEffect(() => {
     // Reattach stream if video element is remounted during state change
@@ -206,6 +207,14 @@ function App() {
           setBoard(Array(9).fill(null));
           setIsXNext(true);
         });
+
+        newSocket.on('message-deleted', (msgId) => {
+          setMessages(prev => prev.filter(m => m.id !== msgId));
+        });
+
+        newSocket.on('message-edited', (data) => {
+          setMessages(prev => prev.map(m => m.id === data.messageId ? { ...m, text: data.newText, edited: true } : m));
+        });
       });
     }
     return () => {
@@ -216,10 +225,33 @@ function App() {
   const getTargetUser = () => user?.id === 'katmut' ? 'betmut' : 'katmut';
 
   const sendMessage = (msgObj) => {
+    if (editingMessage) {
+      const updatedMessages = messages.map(m => m.id === editingMessage.id ? { ...m, text: inputText, edited: true } : m);
+      setMessages(updatedMessages);
+      if (socket) {
+        socket.emit('edit-message', { to: getTargetUser(), messageId: editingMessage.id, newText: inputText });
+      }
+      setEditingMessage(null);
+      setInputText('');
+      return;
+    }
+
     setMessages(prev => [...prev, msgObj]);
     if (socket) {
       socket.emit('send-message', { to: getTargetUser(), message: msgObj });
     }
+  };
+
+  const deleteMessage = (msgId) => {
+    setMessages(prev => prev.filter(m => m.id !== msgId));
+    if (socket) {
+      socket.emit('delete-message', { to: getTargetUser(), messageId: msgId });
+    }
+  };
+
+  const startEdit = (msg) => {
+    setEditingMessage(msg);
+    setInputText(msg.text);
   };
 
   const initWebRTC = async () => {
@@ -770,13 +802,25 @@ function App() {
             )}
 
             {activeTab === 'chat' && (
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {messages.map(m => (
-                  <div key={m.id} className={`bubble ${m.sender === user.id ? 'me' : 'them'}`}>
-                    {m.type === 'text' && m.text}
-                    {m.type === 'image' && <img src={m.url} />}
-                  </div>
-                ))}
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  {messages.map(m => (
+                    <div key={m.id} style={{ alignSelf: m.sender === user.id ? 'flex-end' : 'flex-start', maxWidth: '80%', position: 'relative' }} className="msg-container">
+                      <div className={`bubble ${m.sender === user.id ? 'me' : 'them'}`} style={{ marginBottom: '2px', cursor: 'pointer' }} onClick={() => m.sender === user.id && startEdit(m)}>
+                        {m.type === 'text' && m.text}
+                        {m.type === 'image' && <img src={m.url} style={{ maxWidth: '100%', borderRadius: '10px' }} />}
+                        {m.edited && <span style={{ fontSize: '9px', opacity: 0.5, marginLeft: '5px', display: 'block', textAlign: 'right' }}>diedit</span>}
+                      </div>
+                      {m.sender === user.id && (
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', padding: '0 5px', marginBottom: '8px' }}>
+                          <button onClick={() => startEdit(m)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#94a3b8' }}>Edit</button>
+                          <button onClick={() => deleteMessage(m.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#ef4444' }}>Hapus</button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  <div ref={scrollRef} />
+                </div>
               </div>
             )}
 
@@ -853,9 +897,12 @@ function App() {
                 ) : pbState === 'idle' ? (
                   <>
                     <div style={{ width: '100%', borderRadius: '20px', overflow: 'hidden', background: '#000', position: 'relative', aspectRatio: '3/4' }}>
-                      <video ref={videoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <video ref={videoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }} />
+                      <button onClick={() => setFacingMode(prev => prev === 'user' ? 'environment' : 'user')} style={{ position: 'absolute', top: '15px', right: '15px', width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Camera size={20} />
+                      </button>
                     </div>
-                    <button onClick={startPhotobooth} style={{ width: '100%', padding: '1rem', borderRadius: '15px', background: 'var(--primary)', border: 'none', fontWeight: '800', color: '#fff', cursor: 'pointer', fontSize: '16px' }}>📷 Mulai Photobooth!</button>
+                    <button onClick={startPhotobooth} style={{ width: '100%', padding: '1rem', borderRadius: '15px', background: 'var(--primary)', border: 'none', fontWeight: '800', color: '#fff', cursor: 'pointer', fontSize: '16px', marginTop: '10px' }}>📷 Mulai Photobooth!</button>
                   </>
                 ) : pbState === 'countdown' ? (
                   <div style={{ display: 'flex', gap: '10px', height: '400px' }}>
@@ -928,14 +975,26 @@ function App() {
           </div>
 
           {activeTab === 'chat' && (
-            <div className="input-container">
+            <div className="input-container" style={{ position: 'relative' }}>
+              {editingMessage && (
+                <div style={{ position: 'absolute', top: '-35px', left: '0', right: '0', background: '#f1f5f9', padding: '8px 15px', fontSize: '11px', borderRadius: '15px 15px 0 0', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0' }}>
+                  <span>✏️ Mengedit pesan...</span>
+                  <button onClick={() => { setEditingMessage(null); setInputText(''); }} style={{ border: 'none', background: 'none', cursor: 'pointer' }}><X size={14} /></button>
+                </div>
+              )}
               <button onClick={() => fileInputRef.current.click()} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><Paperclip size={20} color="#94a3b8" /></button>
-              <input type="text" placeholder="Ketik sesuatu..." value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyPress={(e) => {
-                if (e.key === 'Enter' && inputText.trim()) {
-                  sendMessage({ id: Date.now(), type: 'text', text: inputText, sender: user.id });
-                  setInputText('');
-                }
-              }} />
+              <input 
+                type="text" 
+                placeholder="Ketik sesuatu..." 
+                value={inputText} 
+                onChange={(e) => setInputText(e.target.value)} 
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && inputText.trim()) {
+                    sendMessage({ id: Date.now(), type: 'text', text: inputText, sender: user.id });
+                    setInputText('');
+                  }
+                }} 
+              />
               <button onClick={() => {
                 if (inputText.trim()) {
                   sendMessage({ id: Date.now(), type: 'text', text: inputText, sender: user.id });

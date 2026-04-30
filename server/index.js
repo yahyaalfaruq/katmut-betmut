@@ -104,6 +104,21 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Message modifications
+  socket.on('delete-message', (data) => {
+    const targetSocket = users[data.to];
+    if (targetSocket) {
+      io.to(targetSocket).emit('message-deleted', data.messageId);
+    }
+  });
+
+  socket.on('edit-message', (data) => {
+    const targetSocket = users[data.to];
+    if (targetSocket) {
+      io.to(targetSocket).emit('message-edited', data);
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
     // Find who disconnected
