@@ -4,7 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 
 function App() {
   const [isLoading, setIsLoading] = useState(true)
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('katmut_user');
+    return saved ? JSON.parse(saved) : null;
+  })
   const [selectedChar, setSelectedChar] = useState(null)
   const [password, setPassword] = useState('')
   
@@ -24,6 +27,7 @@ function App() {
   const [isScreenSharing, setIsScreenSharing] = useState(false)
   const [facingMode, setFacingMode] = useState('user')
   const [activeMessageMenu, setActiveMessageMenu] = useState(null)
+  const [activeEmojiMenu, setActiveEmojiMenu] = useState(null)
   
   const playSound = (type) => {
     const sounds = {
@@ -107,7 +111,12 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (user) document.body.setAttribute('data-theme', user.id)
+    if (user) {
+      document.body.setAttribute('data-theme', user.id);
+      localStorage.setItem('katmut_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('katmut_user');
+    }
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
     localStorage.setItem('katmut_messages', JSON.stringify(messages));
     localStorage.setItem('katmut_call_history', JSON.stringify(callHistory));
@@ -274,6 +283,11 @@ function App() {
   const startEdit = (msg) => {
     setEditingMessage(msg);
     setInputText(msg.text);
+  };
+
+  const addEmoji = (msgId, emoji) => {
+    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, reaction: emoji } : m));
+    setActiveEmojiMenu(null);
   };
 
   const initWebRTC = async () => {
@@ -869,7 +883,18 @@ function App() {
                 <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '5px' }}>
                   {messages.map(m => (
                     <div key={m.id} style={{ alignSelf: m.sender === user.id ? 'flex-end' : 'flex-start', maxWidth: '85%', position: 'relative', display: 'flex', alignItems: 'center', gap: '8px', marginRight: m.sender === user.id ? '12px' : '0' }} className="msg-container">
-                      {m.sender !== user.id && <button style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.3 }}><Smile size={16} /></button>}
+                      {m.sender !== user.id && (
+                        <div style={{ position: 'relative' }}>
+                          <button onClick={() => setActiveEmojiMenu(activeEmojiMenu === m.id ? null : m.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.3 }}><Smile size={16} /></button>
+                          <AnimatePresence>
+                            {activeEmojiMenu === m.id && (
+                              <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} style={{ position: 'absolute', bottom: '25px', left: 0, background: '#fff', padding: '5px', borderRadius: '20px', boxShadow: '0 5px 15px rgba(0,0,0,0.1)', display: 'flex', gap: '5px', zIndex: 100 }}>
+                                {['❤️', '😂', '😮', '😢', '🔥', '👍'].map(e => <span key={e} onClick={() => addEmoji(m.id, e)} style={{ cursor: 'pointer' }}>{e}</span>)}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      )}
                       
                       {m.type === 'call-log' ? (
                         <div style={{ background: 'rgba(0,0,0,0.05)', padding: '5px 15px', borderRadius: '15px', fontSize: '11px', margin: '10px 0', textAlign: 'center', alignSelf: 'center', color: '#64748b' }}>
@@ -880,6 +905,7 @@ function App() {
                           <div className={`bubble ${m.sender === user.id ? 'me' : 'them'}`} style={{ marginBottom: '2px', cursor: 'pointer', position: 'relative', paddingRight: m.sender === user.id ? '30px' : '15px' }} onClick={() => m.sender === user.id && setActiveMessageMenu(activeMessageMenu === m.id ? null : m.id)}>
                             {m.type === 'text' && m.text}
                             {m.type === 'image' && <img src={m.url} style={{ maxWidth: '100%', borderRadius: '10px' }} />}
+                            {m.reaction && <span style={{ position: 'absolute', bottom: '-8px', right: m.sender === user.id ? 'auto' : '-8px', left: m.sender === user.id ? '-8px' : 'auto', background: '#fff', borderRadius: '10px', padding: '1px 4px', fontSize: '10px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>{m.reaction}</span>}
                             {m.sender === user.id && (
                               <div style={{ position: 'absolute', top: '8px', right: '8px', opacity: 0.3 }}>
                                 <ChevronDown size={14} />
@@ -890,7 +916,7 @@ function App() {
                           
                           <AnimatePresence>
                             {activeMessageMenu === m.id && m.sender === user.id && (
-                              <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} style={{ display: 'flex', gap: '5px', position: 'absolute', top: '-45px', right: 0, background: '#1e293b', padding: '5px 10px', borderRadius: '15px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', zIndex: 100, border: '1px solid rgba(255,255,255,0.1)' }}>
+                              <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} style={{ display: 'flex', gap: '5px', position: 'absolute', top: '100%', right: 0, background: '#1e293b', padding: '5px 10px', borderRadius: '15px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', zIndex: 100, border: '1px solid rgba(255,255,255,0.1)', marginTop: '5px' }}>
                                 <button onClick={() => { startEdit(m); setActiveMessageMenu(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fff', padding: '5px' }}><Sparkles size={16} /></button>
                                 <button onClick={() => { deleteMessage(m.id); setActiveMessageMenu(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ff7675', padding: '5px' }}><Trash2 size={16} /></button>
                                 <button onClick={() => setActiveMessageMenu(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '5px' }}><X size={16} /></button>
@@ -900,7 +926,18 @@ function App() {
                         </div>
                       )}
 
-                      {m.sender === user.id && <button style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.3 }}><Smile size={16} /></button>}
+                      {m.sender === user.id && (
+                        <div style={{ position: 'relative' }}>
+                          <button onClick={() => setActiveEmojiMenu(activeEmojiMenu === m.id ? null : m.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.3 }}><Smile size={16} /></button>
+                          <AnimatePresence>
+                            {activeEmojiMenu === m.id && (
+                              <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} style={{ position: 'absolute', bottom: '25px', right: 0, background: '#fff', padding: '5px', borderRadius: '20px', boxShadow: '0 5px 15px rgba(0,0,0,0.1)', display: 'flex', gap: '5px', zIndex: 100 }}>
+                                {['❤️', '😂', '😮', '😢', '🔥', '👍'].map(e => <span key={e} onClick={() => addEmoji(m.id, e)} style={{ cursor: 'pointer' }}>{e}</span>)}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      )}
                     </div>
                   ))}
                   <div ref={scrollRef} />
