@@ -66,13 +66,7 @@ function App() {
     { id: 3, title: 'Resep Roti Jagung Enak', excerpt: 'Camilan favorit kita berdua ternyata mudah dibuat...', category: 'Food', date: '26 Apr' }
   ])
 
-  const [galleryImages, setGalleryImages] = useState([
-    { id: 1, url: '/images/gallery/gallery1.png', title: 'Cupid Katmut & Betmut 💖', likes: 88 },
-    { id: 2, url: '/images/gallery/gallery2.png', title: 'Halloween di Puncak Nirvana 🎃', likes: 65 },
-    { id: 3, url: '/images/gallery/gallery3.png', title: 'Nyantai di Bawah Sakura 🌸', likes: 92 },
-    { id: 4, url: '/images/gallery/gallery4.png', title: 'Selfie Bulan Purnama 🌙', likes: 120 },
-    { id: 5, url: '/images/gallery/gallery5.png', title: 'Menatap Masa Depan Berdua ✨', likes: 150 }
-  ])
+  const [galleryImages, setGalleryImages] = useState([])
 
   const scrollRef = useRef(null)
   const fileInputRef = useRef(null)
