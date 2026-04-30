@@ -147,18 +147,22 @@ function App() {
 
         setSocket(newSocket);
 
-        newSocket.on('connect', () => {
+        const onConnect = () => {
           setIsConnected(true);
-          console.log('Connected to Signaling Server');
+          console.log('Connected to Signaling Server as:', user.id);
           newSocket.emit('register', user.id);
-        });
+        };
+
+        if (newSocket.connected) onConnect();
+        newSocket.on('connect', onConnect);
 
         newSocket.on('disconnect', () => {
           setIsConnected(false);
+          console.log('Disconnected from server');
         });
 
         newSocket.on('connect_error', (err) => {
-          console.error('Socket Connection Error:', err);
+          console.error('Socket Connection Error:', err.message);
           setIsConnected(false);
         });
 
@@ -282,6 +286,16 @@ function App() {
     };
 
     peerConnection.current = pc;
+    
+    const callLog = {
+      id: Date.now(),
+      type: 'call-log',
+      text: `Panggilan Video (${new Date().toLocaleTimeString()})`,
+      sender: user.id,
+      timestamp: Date.now()
+    };
+
+    setMessages(prev => [...prev, callLog]);
     
     // Add to history
     setCallHistory(prev => [{
@@ -806,16 +820,24 @@ function App() {
                 <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '5px' }}>
                   {messages.map(m => (
                     <div key={m.id} style={{ alignSelf: m.sender === user.id ? 'flex-end' : 'flex-start', maxWidth: '80%', position: 'relative' }} className="msg-container">
-                      <div className={`bubble ${m.sender === user.id ? 'me' : 'them'}`} style={{ marginBottom: '2px', cursor: 'pointer' }} onClick={() => m.sender === user.id && startEdit(m)}>
-                        {m.type === 'text' && m.text}
-                        {m.type === 'image' && <img src={m.url} style={{ maxWidth: '100%', borderRadius: '10px' }} />}
-                        {m.edited && <span style={{ fontSize: '9px', opacity: 0.5, marginLeft: '5px', display: 'block', textAlign: 'right' }}>diedit</span>}
-                      </div>
-                      {m.sender === user.id && (
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', padding: '0 5px', marginBottom: '8px' }}>
-                          <button onClick={() => startEdit(m)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#94a3b8' }}>Edit</button>
-                          <button onClick={() => deleteMessage(m.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#ef4444' }}>Hapus</button>
+                      {m.type === 'call-log' ? (
+                        <div style={{ background: 'rgba(0,0,0,0.05)', padding: '5px 15px', borderRadius: '15px', fontSize: '11px', margin: '10px 0', textAlign: 'center', alignSelf: 'center', color: '#64748b' }}>
+                           📹 {m.text}
                         </div>
+                      ) : (
+                        <>
+                          <div className={`bubble ${m.sender === user.id ? 'me' : 'them'}`} style={{ marginBottom: '2px', cursor: 'pointer' }} onClick={() => m.sender === user.id && startEdit(m)}>
+                            {m.type === 'text' && m.text}
+                            {m.type === 'image' && <img src={m.url} style={{ maxWidth: '100%', borderRadius: '10px' }} />}
+                            {m.edited && <span style={{ fontSize: '9px', opacity: 0.5, marginLeft: '5px', display: 'block', textAlign: 'right' }}>diedit</span>}
+                          </div>
+                          {m.sender === user.id && (
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', padding: '0 5px', marginBottom: '8px' }}>
+                              <button onClick={() => startEdit(m)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#94a3b8' }}>Edit</button>
+                              <button onClick={() => deleteMessage(m.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#ef4444' }}>Hapus</button>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   ))}
