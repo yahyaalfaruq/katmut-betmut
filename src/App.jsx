@@ -3,6 +3,7 @@ import { MessageCircle, Image, History, Phone, Video, Heart, Settings, Home, Sen
 import { motion, AnimatePresence } from 'framer-motion'
 
 function App() {
+  const [isLoading, setIsLoading] = useState(true)
   const [user, setUser] = useState(null)
   const [selectedChar, setSelectedChar] = useState(null)
   const [password, setPassword] = useState('')
@@ -99,6 +100,11 @@ function App() {
 
   const scrollRef = useRef(null)
   const fileInputRef = useRef(null)
+
+  useEffect(() => {
+    // Simulate initial load
+    setTimeout(() => setIsLoading(false), 2500);
+  }, []);
 
   useEffect(() => {
     if (user) document.body.setAttribute('data-theme', user.id)
@@ -625,6 +631,37 @@ function App() {
 
   return (
     <div className="app-shell">
+      <AnimatePresence>
+        {isLoading && (
+          <motion.div 
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, background: '#fff', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <motion.div 
+              animate={{ 
+                scale: [1, 1.2, 1],
+                rotate: [0, 10, -10, 0]
+              }}
+              transition={{ repeat: Infinity, duration: 2 }}
+              style={{ fontSize: '80px', marginBottom: '20px' }}
+            >
+              🐸🐤
+            </motion.div>
+            <h2 style={{ fontWeight: '800', color: '#26de81' }}>Katmut <span style={{ color: '#fed330' }}>& Betmut</span></h2>
+            <p style={{ fontSize: '14px', opacity: 0.5, marginTop: '10px' }}>Menyiapkan petualangan imut...</p>
+            <div style={{ width: '150px', height: '6px', background: '#f1f5f9', borderRadius: '10px', marginTop: '20px', overflow: 'hidden' }}>
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: '100%' }}
+                transition={{ duration: 2 }}
+                style={{ height: '100%', background: 'linear-gradient(90deg, #26de81, #fed330)' }}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {!user ? (
         <div className="screen" style={{ padding: '2rem', justifyContent: 'center', alignItems: 'center' }}>
           <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} style={{ textAlign: 'center', width: '100%' }}>
@@ -845,9 +882,10 @@ function App() {
                           </div>
                           <AnimatePresence>
                             {activeMessageMenu === m.id && m.sender === user.id && (
-                              <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', padding: '5px', position: 'absolute', bottom: '-25px', right: 0, background: '#fff', borderRadius: '10px', boxShadow: '0 5px 15px rgba(0,0,0,0.1)', zIndex: 10 }}>
-                                <button onClick={() => { startEdit(m); setActiveMessageMenu(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: '#64748b', fontWeight: '800' }}>Edit</button>
-                                <button onClick={() => { deleteMessage(m.id); setActiveMessageMenu(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: '#ef4444', fontWeight: '800' }}>Hapus</button>
+                              <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} style={{ display: 'flex', gap: '5px', position: 'absolute', top: '-45px', right: 0, background: '#1e293b', padding: '5px 10px', borderRadius: '15px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', zIndex: 100, border: '1px solid rgba(255,255,255,0.1)' }}>
+                                <button onClick={() => { startEdit(m); setActiveMessageMenu(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fff', padding: '5px' }}><Sparkles size={16} /></button>
+                                <button onClick={() => { deleteMessage(m.id); setActiveMessageMenu(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ff7675', padding: '5px' }}><Trash2 size={16} /></button>
+                                <button onClick={() => setActiveMessageMenu(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '5px' }}><X size={16} /></button>
                               </motion.div>
                             )}
                           </AnimatePresence>

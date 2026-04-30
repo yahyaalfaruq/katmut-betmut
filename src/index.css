@@ -51,7 +51,7 @@ nav.main-nav { height: calc(75px + env(safe-area-inset-bottom)); width: 100%; ba
 .nav-btn.active { background: var(--primary); color: #fff; transform: translateY(-5px); }
 
 /* Chat Input */
-.input-container { position: absolute; bottom: 15px; left: 1rem; right: 1rem; background: #fff; border-radius: 25px; padding: 8px 12px; display: flex; gap: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); z-index: 10; }
+.input-container { position: absolute; bottom: calc(15px + env(safe-area-inset-bottom)); left: 1rem; right: 1rem; background: #fff; border-radius: 25px; padding: 8px 12px; display: flex; gap: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); z-index: 10; }
 .input-container input { flex: 1; border: none; outline: none; padding: 5px 10px; }
 .send-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--primary); color: #fff; border: none; cursor: pointer; flex-shrink: 0; }
 
