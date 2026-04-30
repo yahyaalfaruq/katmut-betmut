@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { MessageCircle, Image, History, Phone, Video, Heart, Settings, Home, Send, Sparkles, X, Mic, Camera, Paperclip, CheckCircle2, Trophy, Gamepad2, BookOpen, Trash2, Plus, LogOut, Newspaper } from 'lucide-react'
+import { MessageCircle, Image, History, Phone, Video, Heart, Settings, Home, Send, Sparkles, X, Mic, MicOff, Camera, Paperclip, CheckCircle2, Trophy, Gamepad2, BookOpen, Trash2, Plus, LogOut, Newspaper, Monitor } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 function App() {
@@ -11,7 +11,17 @@ function App() {
   const [isCalling, setIsCalling] = useState(false)
   const [isVideoCalling, setIsVideoCalling] = useState(false)
   const [socket, setSocket] = useState(null)
+  const [isConnected, setIsConnected] = useState(false)
   const [incomingCall, setIncomingCall] = useState(null)
+  const [callHistory, setCallHistory] = useState(() => {
+    const saved = localStorage.getItem('katmut_call_history');
+    return saved ? JSON.parse(saved) : [];
+  })
+  
+  const [micActive, setMicActive] = useState(true)
+  const [videoActive, setVideoActive] = useState(true)
+  const [isScreenSharing, setIsScreenSharing] = useState(false)
+  const [facingMode, setFacingMode] = useState('user')
   
   const vcVideoRef = useRef(null)
   const vcStreamRef = useRef(null)
@@ -41,9 +51,12 @@ function App() {
   const canvasRef = useRef(null)
   const streamRef = useRef(null)
   const [inputText, setInputText] = useState('')
-  const [messages, setMessages] = useState([
-    { id: 1, type: 'text', text: "Halo Betmut! Lihat deh foto-foto petualangan kita kemarin, bagus banget! 🐸", sender: 'katmut' },
-  ])
+  const [messages, setMessages] = useState(() => {
+    const saved = localStorage.getItem('katmut_messages');
+    return saved ? JSON.parse(saved) : [
+      { id: 1, type: 'text', text: "Halo Betmut! Lihat deh foto-foto petualangan kita kemarin, bagus banget! 🐸", sender: 'katmut', timestamp: Date.now() },
+    ];
+  })
 
   const [tasks, setTasks] = useState([
     { id: 1, text: "Update Gallery dengan foto baru", done: true },
@@ -79,7 +92,9 @@ function App() {
   useEffect(() => {
     if (user) document.body.setAttribute('data-theme', user.id)
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
-  }, [user, messages, activeTab])
+    localStorage.setItem('katmut_messages', JSON.stringify(messages));
+    localStorage.setItem('katmut_call_history', JSON.stringify(callHistory));
+  }, [user, messages, callHistory, activeTab])
 
   useEffect(() => {
     if (activeTab === 'photobooth') {
@@ -124,16 +139,46 @@ function App() {
     if (user) {
       import('socket.io-client').then(({ io }) => {
         const socketUrl = import.meta.env.VITE_BACKEND_URL || (import.meta.env.DEV ? 'http://localhost:3001' : window.location.origin);
-        const newSocket = io(socketUrl);
+        const newSocket = io(socketUrl, {
+          transports: ['websocket', 'polling'],
+          reconnectionAttempts: 5
+        });
+
         setSocket(newSocket);
-        newSocket.emit('register', user.id);
+
+        newSocket.on('connect', () => {
+          setIsConnected(true);
+          console.log('Connected to Signaling Server');
+          newSocket.emit('register', user.id);
+        });
+
+        newSocket.on('disconnect', () => {
+          setIsConnected(false);
+        });
+
+        newSocket.on('connect_error', (err) => {
+          console.error('Socket Connection Error:', err);
+          setIsConnected(false);
+        });
 
         newSocket.on('receive-message', (msg) => {
           setMessages(prev => [...prev, msg]);
+          if (document.hidden) {
+            new Notification(`Pesan baru dari ${msg.sender === 'katmut' ? 'Katmut' : 'Betmut'}`, {
+              body: msg.text,
+              icon: '/vite.svg'
+            });
+          }
         });
 
         newSocket.on('call-made', async (data) => {
           setIncomingCall(data);
+          if (document.hidden) {
+            new Notification(`Panggilan dari ${data.from === 'katmut' ? 'Katmut' : 'Betmut'}`, {
+              body: 'Klik untuk menjawab panggilan imut ini! 🐸🐤',
+              icon: '/vite.svg'
+            });
+          }
         });
 
         newSocket.on('answer-made', async (data) => {
@@ -205,7 +250,98 @@ function App() {
     };
 
     peerConnection.current = pc;
+    
+    // Add to history
+    setCallHistory(prev => [{
+      id: Date.now(),
+      type: 'Video Call',
+      with: getTargetUser(),
+      time: new Date().toLocaleTimeString(),
+      date: new Date().toLocaleDateString(),
+      status: 'Ongoing'
+    }, ...prev]);
+
     return pc;
+  };
+
+  const toggleMic = () => {
+    if (vcStreamRef.current) {
+      const audioTrack = vcStreamRef.current.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setMicActive(audioTrack.enabled);
+      }
+    }
+  };
+
+  const toggleVideo = () => {
+    if (vcStreamRef.current) {
+      const videoTrack = vcStreamRef.current.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setVideoActive(videoTrack.enabled);
+      }
+    }
+  };
+
+  const toggleScreenShare = async () => {
+    try {
+      if (!isScreenSharing) {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const screenTrack = screenStream.getVideoTracks()[0];
+        
+        if (peerConnection.current) {
+          const sender = peerConnection.current.getSenders().find(s => s.track.kind === 'video');
+          if (sender) sender.replaceTrack(screenTrack);
+        }
+        
+        if (vcVideoRef.current) vcVideoRef.current.srcObject = screenStream;
+        
+        screenTrack.onended = () => stopScreenShare();
+        setIsScreenSharing(true);
+      } else {
+        stopScreenShare();
+      }
+    } catch (err) {
+      console.error("Error sharing screen:", err);
+    }
+  };
+
+  const stopScreenShare = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    const videoTrack = stream.getVideoTracks()[0];
+    
+    if (peerConnection.current) {
+      const sender = peerConnection.current.getSenders().find(s => s.track.kind === 'video');
+      if (sender) sender.replaceTrack(videoTrack);
+    }
+    
+    if (vcVideoRef.current) vcVideoRef.current.srcObject = stream;
+    vcStreamRef.current = stream;
+    setIsScreenSharing(false);
+  };
+
+  const switchCamera = async () => {
+    const newMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(newMode);
+    
+    if (vcStreamRef.current) {
+      vcStreamRef.current.getTracks().forEach(t => t.stop());
+    }
+    
+    const newStream = await navigator.mediaDevices.getUserMedia({ 
+      video: { facingMode: newMode }, 
+      audio: true 
+    });
+    
+    vcStreamRef.current = newStream;
+    if (vcVideoRef.current) vcVideoRef.current.srcObject = newStream;
+    
+    if (peerConnection.current) {
+      const videoTrack = newStream.getVideoTracks()[0];
+      const sender = peerConnection.current.getSenders().find(s => s.track.kind === 'video');
+      if (sender) sender.replaceTrack(videoTrack);
+    }
   };
 
   const startVideoCall = async () => {
@@ -395,6 +531,11 @@ function App() {
     if (creds[selectedChar] === password) {
       setUser({ id: selectedChar, name: selectedChar === 'katmut' ? 'Katmut' : 'Betmut' })
       setActiveTab('home')
+      
+      // Request notification permission
+      if ("Notification" in window) {
+        Notification.requestPermission();
+      }
     } else {
       alert("Password salah!")
     }
@@ -453,6 +594,7 @@ function App() {
             {[
               { id: 'home', icon: Home },
               { id: 'chat', icon: MessageCircle },
+              { id: 'history', icon: History },
               { id: 'photobooth', icon: Camera },
               { id: 'articles', icon: Newspaper },
               { id: 'gallery', icon: Image },
@@ -466,8 +608,11 @@ function App() {
           <div className="screen">
             <header className="glass-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{user.id === 'katmut' ? '🐸' : '🐤'}</div>
-                <div><h3 style={{ fontSize: '16px', fontWeight: '800' }}>{user.name}</h3><p style={{ fontSize: '10px', opacity: 0.4 }}>Sedang Petualangan</p></div>
+                <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                  {user.id === 'katmut' ? '🐸' : '🐤'}
+                  <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '12px', height: '12px', borderRadius: '50%', background: isConnected ? '#22c55e' : '#ef4444', border: '2px solid #fff', boxShadow: '0 0 5px rgba(0,0,0,0.1)' }} title={isConnected ? 'Connected' : 'Disconnected'} />
+                </div>
+                <div><h3 style={{ fontSize: '16px', fontWeight: '800' }}>{user.name}</h3><p style={{ fontSize: '10px', opacity: 0.4 }}>{isConnected ? 'Online' : 'Connecting...'}</p></div>
               </div>
             <div style={{ display: 'flex', gap: '10px' }}>
                <button onClick={() => setIsCalling(true)} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}><Phone size={20} color="#94a3b8" /></button>
@@ -518,9 +663,11 @@ function App() {
                     </div>
                  </div>
                  <div style={{ padding: '30px 20px', display: 'flex', justifyContent: 'space-evenly', alignItems: 'center', background: '#0f172a' }}>
-                    <button style={{ width: '50px', height: '50px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', cursor: 'pointer' }}><Mic size={24} /></button>
+                    <button onClick={toggleMic} style={{ width: '50px', height: '50px', borderRadius: '50%', background: micActive ? 'rgba(255,255,255,0.1)' : '#ef4444', border: 'none', color: '#fff', cursor: 'pointer' }}>{micActive ? <Mic size={24} /> : <MicOff size={24} />}</button>
+                    <button onClick={toggleVideo} style={{ width: '50px', height: '50px', borderRadius: '50%', background: videoActive ? 'rgba(255,255,255,0.1)' : '#ef4444', border: 'none', color: '#fff', cursor: 'pointer' }}><Video size={24} /></button>
+                    <button onClick={switchCamera} style={{ width: '50px', height: '50px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', cursor: 'pointer' }}><Camera size={24} /></button>
                     <button onClick={endCall} style={{ width: '70px', height: '70px', borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 5px 15px rgba(239, 68, 68, 0.5)' }}><Phone style={{ transform: 'rotate(135deg)' }} size={32} /></button>
-                    <button style={{ width: '50px', height: '50px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', cursor: 'pointer' }}><Video size={24} /></button>
+                    <button onClick={toggleScreenShare} style={{ width: '50px', height: '50px', borderRadius: '50%', background: isScreenSharing ? '#3b82f6' : 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', cursor: 'pointer' }}><Monitor size={24} /></button>
                  </div>
               </motion.div>
             )}
@@ -599,6 +746,29 @@ function App() {
               </div>
             )}
 
+            {activeTab === 'history' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <h3 style={{ fontWeight: '800', marginBottom: '10px' }}>Riwayat Panggilan 📞</h3>
+                {callHistory.length === 0 ? (
+                  <p style={{ textAlign: 'center', opacity: 0.4, marginTop: '20px' }}>Belum ada riwayat.</p>
+                ) : (
+                  callHistory.map(h => (
+                    <div key={h.id} style={{ background: '#fff', padding: '15px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '15px', boxShadow: '0 4px 10px rgba(0,0,0,0.02)' }}>
+                      <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'var(--primary)20', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Video size={20} />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontWeight: '800', fontSize: '14px' }}>{h.with === 'katmut' ? 'Katmut' : 'Betmut'}</p>
+                        <p style={{ fontSize: '11px', opacity: 0.5 }}>{h.date} • {h.time}</p>
+                      </div>
+                      <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary)' }}>{h.status}</span>
+                    </div>
+                  ))
+                )}
+                <button onClick={() => setCallHistory([])} style={{ marginTop: '20px', background: 'none', border: 'none', color: '#ef4444', fontSize: '12px', fontWeight: '800', cursor: 'pointer' }}>Hapus Riwayat</button>
+              </div>
+            )}
+
             {activeTab === 'chat' && (
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {messages.map(m => (
@@ -658,15 +828,13 @@ function App() {
                 {cameraError ? (
                   <div style={{ textAlign: 'center', padding: '1.5rem', background: '#ffeaa7', borderRadius: '20px', width: '100%', color: '#d35400' }}>
                     <p style={{ marginBottom: '0.5rem', fontWeight: '800', fontSize: '18px' }}>Kamera Diblokir 🚫</p>
-                    <div style={{ textAlign: 'left', fontSize: '12px', background: 'rgba(255,255,255,0.5)', padding: '10px', borderRadius: '10px', marginBottom: '1rem' }}>
-                      <strong>Cara membukanya:</strong>
-                      <ol style={{ marginLeft: '20px', marginTop: '5px' }}>
-                        <li>Klik ikon Gembok (🔒) atau ikon Settings (⚙️) di kolom URL paling atas browser (di sebelah tulisan localhost).</li>
-                        <li>Cari menu <strong>Kamera / Camera</strong>.</li>
-                        <li>Ubah jadi <strong>Izinkan / Allow</strong>.</li>
-                        <li>Refresh / Muat ulang halaman ini (Tekan F5).</li>
-                      </ol>
-                    </div>
+                    <p style={{ fontSize: '13px', opacity: 0.7, marginBottom: '15px' }}>
+                      Cara membukanya:<br/>
+                      1. Klik ikon <b>Gembok ( 🔒 )</b> atau ikon <b>Settings ( ⚙️ )</b> di kolom URL paling atas browser.<br/>
+                      2. Cari menu <b>Kamera / Camera</b>.<br/>
+                      3. Ubah jadi <b>Izinkan / Allow</b>.<br/>
+                      4. Refresh / Muat ulang halaman ini.
+                    </p>
                     <p style={{ fontSize: '12px', marginBottom: '1rem', fontWeight: 'bold' }}>Atau unggah foto manual di bawah ini:</p>
                     <input type="file" accept="image/*" onChange={(e) => {
                       const file = e.target.files[0];
