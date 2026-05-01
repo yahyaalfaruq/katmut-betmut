@@ -50,6 +50,7 @@ const App = () => {
   const [isMinimized, setIsMinimized] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState(null)
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream
 
   const peerRef = useRef(null)
   const localStreamRef = useRef(null)
@@ -507,6 +508,10 @@ const App = () => {
   const getTargetUser = () => user?.id === 'katmut' ? 'betmut' : 'katmut'
 
   const installApp = async () => {
+    if (isIOS) {
+      alert("Khusus iPhone ✨:\n\n1. Klik tombol 'Share' (kotak panah ke atas) di bagian bawah browser.\n2. Scroll ke bawah dan pilih 'Add to Home Screen' (Tambah ke Layar Utama).\n3. Selesai! Aplikasi akan muncul di menu HP-mu.");
+      return;
+    }
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
@@ -725,7 +730,7 @@ const App = () => {
         </AnimatePresence>
       </div>
 
-      {deferredPrompt && isMobile && !window.matchMedia('(display-mode: standalone)').matches && (
+      {(deferredPrompt || (isIOS && !window.matchMedia('(display-mode: standalone)').matches)) && (
         <motion.button 
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
