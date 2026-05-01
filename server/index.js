@@ -72,19 +72,66 @@ io.on('connection', (socket) => {
   });
 
   socket.on('like-gallery-item', (data) => {
-    galleryItems = galleryItems.map(img => 
-      img.id === data.id ? { ...img, likes: img.likes + 1 } : img
-    );
+    galleryItems = galleryItems.map(img => {
+      if (img.id === data.id) {
+        const likedBy = img.likedBy || [];
+        if (likedBy.includes(data.userId)) {
+          // Unlike
+          return { ...img, likes: Math.max(0, img.likes - 1), likedBy: likedBy.filter(id => id !== data.userId) };
+        } else {
+          // Like
+          return { ...img, likes: img.likes + 1, likedBy: [...likedBy, data.userId] };
+        }
+      }
+      return img;
+    });
     saveGallery();
-    io.emit('gallery-item-updated', data.id, { type: 'like' });
+    const updatedItem = galleryItems.find(img => img.id === data.id);
+    io.emit('gallery-item-updated', data.id, { type: 'sync', item: updatedItem });
   });
 
   socket.on('comment-gallery-item', (data) => {
-    galleryItems = galleryItems.map(img => 
-      img.id === data.id ? { ...img, comments: [...(img.comments || []), data.comment] } : img
-    );
+    galleryItems = galleryItems.map(img => {
+      if (img.id === data.id) {
+        const comments = img.comments || [];
+        // Prevent duplicate comments with same ID
+        if (comments.some(c => c.id === data.comment.id)) return img;
+        return { ...img, comments: [...comments, data.comment] };
+      }
+      return img;
+    });
     saveGallery();
-    io.emit('gallery-item-updated', data.id, { type: 'comment', comment: data.comment });
+    const updatedItem = galleryItems.find(img => img.id === data.id);
+    io.emit('gallery-item-updated', data.id, { type: 'sync', item: updatedItem });
+  });
+
+  socket.on('delete-gallery-comment', (data) => {
+    galleryItems = galleryItems.map(img => {
+      if (img.id === data.itemId) {
+        return { ...img, comments: (img.comments || []).filter(c => c.id !== data.commentId) };
+      }
+      return img;
+    });
+    saveGallery();
+    const updatedItem = galleryItems.find(img => img.id === data.itemId);
+    io.emit('gallery-item-updated', data.itemId, { type: 'sync', item: updatedItem });
+  });
+
+  socket.on('edit-gallery-comment', (data) => {
+    galleryItems = galleryItems.map(img => {
+      if (img.id === data.itemId) {
+        return { 
+          ...img, 
+          comments: (img.comments || []).map(c => 
+            c.id === data.commentId ? { ...c, text: data.newText, edited: true } : c
+          ) 
+        };
+      }
+      return img;
+    });
+    saveGallery();
+    const updatedItem = galleryItems.find(img => img.id === data.itemId);
+    io.emit('gallery-item-updated', data.itemId, { type: 'sync', item: updatedItem });
   });
 
   // Article Events

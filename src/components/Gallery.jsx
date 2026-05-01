@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react'
-import { Heart, MessageCircle, X, Send, Plus, Camera, Image as ImageIcon } from 'lucide-react'
+import { Heart, MessageCircle, X, Send, Plus, Camera, Image as ImageIcon, Trash2, Edit2, Check } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const Gallery = ({ galleryItems, user, socket }) => {
@@ -7,24 +7,49 @@ const Gallery = ({ galleryItems, user, socket }) => {
   const [isCreating, setIsCreating] = useState(false)
   const [newImgData, setNewImgData] = useState({ title: '', image: null })
   const [commentText, setCommentText] = useState('')
+  const [showEmojis, setShowEmojis] = useState(false)
+  const [editingComment, setEditingComment] = useState(null)
+  const [editText, setEditText] = useState('')
+  const emojis = ['❤️', '✨', '🔥', '👏', '🙌', '😍', '🐸', '🐤', '🌸', '🌈', '🍭', '🧁', '🎀', '🎈', '🎉']
   const fileInputRef = useRef(null)
 
   const handleLike = (e, id) => {
     e.stopPropagation()
-    socket.emit('like-gallery-item', { id })
+    socket.emit('like-gallery-item', { id, userId: user.id })
   }
 
   const handleAddComment = () => {
     if (!commentText.trim() || !selectedImg) return
     const comment = {
-      id: Date.now(),
+      id: `${user.id}-${Date.now()}`, // Unique ID to prevent duplication
       sender: user.name,
+      senderId: user.id,
       text: commentText,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
     socket.emit('comment-gallery-item', { id: selectedImg.id, comment })
     setCommentText('')
+    setShowEmojis(false)
   }
+
+  const handleDeleteComment = (commentId) => {
+    if (window.confirm('Hapus komentar ini?')) {
+      socket.emit('delete-gallery-comment', { itemId: selectedImg.id, commentId })
+    }
+  }
+
+  const startEditComment = (comment) => {
+    setEditingComment(comment.id)
+    setEditText(comment.text)
+  }
+
+  const handleSaveEdit = (commentId) => {
+    if (!editText.trim()) return
+    socket.emit('edit-gallery-comment', { itemId: selectedImg.id, commentId, newText: editText })
+    setEditingComment(null)
+  }
+
+  const isLikedByUser = (img) => img.likedBy?.includes(user.id)
 
   const handleFileChange = (e) => {
     const file = e.target.files[0]
@@ -82,7 +107,7 @@ const Gallery = ({ galleryItems, user, socket }) => {
               <p className="gallery-card-title">{img.title}</p>
               <div className="gallery-card-stats">
                 <span onClick={(e) => handleLike(e, img.id)} className="stat-item">
-                  <Heart size={16} fill={img.isLiked ? '#ff7675' : 'none'} color={img.isLiked ? '#ff7675' : '#94a3b8'} /> {img.likes}
+                  <Heart size={16} fill={isLikedByUser(img) ? '#ff7675' : 'none'} color={isLikedByUser(img) ? '#ff7675' : '#94a3b8'} /> {img.likes}
                 </span>
                 <span className="stat-item">
                   <MessageCircle size={16} /> {img.comments?.length || 0}
@@ -115,27 +140,76 @@ const Gallery = ({ galleryItems, user, socket }) => {
                   <div className="modal-comments">
                     {selectedImg.comments?.length > 0 ? (
                       selectedImg.comments.map(c => (
-                        <div key={c.id} className="comment-item">
-                          <span className="comment-sender">{c.sender}</span>
-                          <p className="comment-text">{c.text}</p>
-                          <span className="comment-time">{c.time}</span>
+                        <div key={c.id} className={`comment-bubble-wrapper ${c.senderId === user.id ? 'own' : ''}`}>
+                          <div className="comment-bubble">
+                            <span className="comment-sender">{c.sender}</span>
+                            {editingComment === c.id ? (
+                              <div className="edit-comment-area">
+                                <input 
+                                  value={editText} 
+                                  onChange={(e) => setEditText(e.target.value)} 
+                                  onKeyPress={(e) => e.key === 'Enter' && handleSaveEdit(c.id)}
+                                  autoFocus
+                                  className="edit-input"
+                                />
+                                <div className="edit-actions">
+                                  <button onClick={() => handleSaveEdit(c.id)}><Check size={14} /></button>
+                                  <button onClick={() => setEditingComment(null)}><X size={14} /></button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <p className="comment-text">{c.text}{c.edited && <span className="edited-tag"> (edited)</span>}</p>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '5px' }}>
+                                  <span className="comment-time">{c.time}</span>
+                                  {c.senderId === user.id && (
+                                    <div className="comment-bubble-actions">
+                                      <Edit2 size={12} onClick={() => startEditComment(c)} />
+                                      <Trash2 size={12} onClick={() => handleDeleteComment(c.id)} />
+                                    </div>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </div>
                       ))
                     ) : <p className="no-comments">Belum ada komentar. Jadi yang pertama! ✨</p>}
                   </div>
                   <div className="modal-footer">
                     <div className="footer-actions">
-                      <Heart size={24} onClick={(e) => handleLike(e, selectedImg.id)} />
-                      <MessageCircle size={24} />
+                      <motion.div whileTap={{ scale: 0.8 }}>
+                        <Heart 
+                          size={28} 
+                          onClick={(e) => handleLike(e, selectedImg.id)} 
+                          fill={isLikedByUser(selectedImg) ? '#ff7675' : 'none'} 
+                          color={isLikedByUser(selectedImg) ? '#ff7675' : '#1e293b'} 
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </motion.div>
+                      <MessageCircle size={28} />
                     </div>
                     <p className="likes-count">{selectedImg.likes} likes</p>
                     <div className="comment-input-area">
+                      <div className="emoji-trigger" onClick={() => setShowEmojis(!showEmojis)}>😊</div>
+                      <AnimatePresence>
+                        {showEmojis && (
+                          <motion.div 
+                            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                            className="emoji-picker-mini"
+                          >
+                            {emojis.map(e => (
+                              <span key={e} onClick={() => setCommentText(prev => prev + e)}>{e}</span>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                       <input 
                         placeholder="Tulis komentar..." value={commentText}
                         onChange={(e) => setCommentText(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && handleAddComment()}
                       />
-                      <button onClick={handleAddComment}><Send size={18} /></button>
+                      <button onClick={handleAddComment} className={!commentText.trim() ? 'disabled' : ''}><Send size={18} /></button>
                     </div>
                   </div>
                 </div>

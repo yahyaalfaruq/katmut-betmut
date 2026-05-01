@@ -126,8 +126,13 @@ const App = () => {
     socket.on('gallery-item-updated', (id, data) => {
       setGalleryItems(prev => prev.map(img => {
         if (img.id === id) {
+          if (data.type === 'sync') return data.item;
           if (data.type === 'like') return { ...img, likes: img.likes + 1 };
-          if (data.type === 'comment') return { ...img, comments: [...(img.comments || []), data.comment] };
+          if (data.type === 'comment') {
+            const comments = img.comments || [];
+            if (comments.some(c => c.id === data.comment.id)) return img;
+            return { ...img, comments: [...comments, data.comment] };
+          }
         }
         return img;
       }))
