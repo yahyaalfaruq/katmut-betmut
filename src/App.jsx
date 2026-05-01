@@ -512,7 +512,10 @@ const App = () => {
       alert("Khusus iPhone ✨:\n\n1. Klik tombol 'Share' (kotak panah ke atas) di bagian bawah browser.\n2. Scroll ke bawah dan pilih 'Add to Home Screen' (Tambah ke Layar Utama).\n3. Selesai! Aplikasi akan muncul di menu HP-mu.");
       return;
     }
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) {
+      alert("Cara Install di Android ✨:\n\n1. Klik titik tiga (⋮) di pojok kanan atas browser Chrome.\n2. Pilih menu 'Install App' atau 'Tambahkan ke Layar Utama'.\n3. Selesai! Aplikasi akan muncul di menu HP-mu.");
+      return;
+    }
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     if (outcome === 'accepted') {
@@ -730,7 +733,7 @@ const App = () => {
         </AnimatePresence>
       </div>
 
-      {(deferredPrompt || (isIOS && !window.matchMedia('(display-mode: standalone)').matches)) && (
+      {(isMobile && !window.matchMedia('(display-mode: standalone)').matches) && (
         <motion.button 
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
