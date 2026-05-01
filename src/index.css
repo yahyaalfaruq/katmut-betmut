@@ -1823,3 +1823,11 @@ body { background: #f1f5f9; height: 100vh; overflow: hidden; }
   opacity: 0.8;
 }
 
+
+.fab-install {
+  position: fixed !important;
+  bottom: 100px !important;
+  right: 20px !important;
+  z-index: 10000 !important;
+}
+
