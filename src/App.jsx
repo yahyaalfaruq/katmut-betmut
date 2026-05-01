@@ -738,6 +738,7 @@ const App = () => {
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           className="fab-install"
+          style={{ position: 'fixed', bottom: '100px', right: '20px', zIndex: 99999 }}
           onClick={installApp}
         >
           <Download size={24} />
