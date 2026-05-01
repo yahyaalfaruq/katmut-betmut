@@ -1,8 +1,10 @@
+// Server initialized with gallery assets
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -19,10 +21,31 @@ const io = new Server(server, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST']
-  }
+  },
+  maxHttpBufferSize: 1e8 // 100MB
 });
 
 let users = {};
+
+const messagesFilePath = path.join(__dirname, 'messages.json');
+const galleryFilePath = path.join(__dirname, 'gallery.json');
+const articlesFilePath = path.join(__dirname, 'articles.json');
+
+// Initialize files if they don't exist
+if (!fs.existsSync(messagesFilePath)) fs.writeFileSync(messagesFilePath, JSON.stringify([]));
+if (!fs.existsSync(galleryFilePath)) fs.writeFileSync(galleryFilePath, JSON.stringify([]));
+if (!fs.existsSync(articlesFilePath)) fs.writeFileSync(articlesFilePath, JSON.stringify([
+  { id: 1, title: 'Tips Menjaga Mood', category: 'Health', excerpt: 'Tersenyum adalah kunci utama untuk menjaga hari tetap cerah...', content: 'Tersenyum adalah kunci utama untuk menjaga hari tetap cerah. Selain itu, jangan lupa untuk beristirahat yang cukup dan makan makanan yang bergizi. Mood yang baik akan membuat harimu lebih produktif!', date: '30 Apr', author: 'Admin' },
+  { id: 2, title: 'Kisah Katmut & Betmut', category: 'Story', excerpt: 'Petualangan dimulai dari sebuah kolam kecil yang indah...', content: 'Petualangan dimulai dari sebuah kolam kecil yang indah. Katmut sang katak penurut dan Betmut sang bebek imut selalu bersama dalam suka dan duka. Mereka belajar banyak hal tentang persahabatan sejati.', date: '29 Apr', author: 'Admin' }
+]));
+
+let messageHistory = JSON.parse(fs.readFileSync(messagesFilePath, 'utf8'));
+let galleryItems = JSON.parse(fs.readFileSync(galleryFilePath, 'utf8'));
+let articleItems = JSON.parse(fs.readFileSync(articlesFilePath, 'utf8'));
+
+const saveMessages = () => fs.writeFileSync(messagesFilePath, JSON.stringify(messageHistory, null, 2));
+const saveGallery = () => fs.writeFileSync(galleryFilePath, JSON.stringify(galleryItems, null, 2));
+const saveArticles = () => fs.writeFileSync(articlesFilePath, JSON.stringify(articleItems, null, 2));
 
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
@@ -32,8 +55,43 @@ io.on('connection', (socket) => {
     users[userId] = socket.id;
     console.log(`${userId} registered with socket ${socket.id}`);
     
+    // Send history to the newly registered user
+    socket.emit('message-history', messageHistory);
+    socket.emit('gallery-history', galleryItems);
+    socket.emit('article-history', articleItems);
+
     // Notify others that this user is online
     socket.broadcast.emit('user-online', userId);
+  });
+
+  // Gallery Events
+  socket.on('add-gallery-item', (item) => {
+    galleryItems.unshift(item);
+    saveGallery();
+    io.emit('gallery-item-added', item);
+  });
+
+  socket.on('like-gallery-item', (data) => {
+    galleryItems = galleryItems.map(img => 
+      img.id === data.id ? { ...img, likes: img.likes + 1 } : img
+    );
+    saveGallery();
+    io.emit('gallery-item-updated', data.id, { type: 'like' });
+  });
+
+  socket.on('comment-gallery-item', (data) => {
+    galleryItems = galleryItems.map(img => 
+      img.id === data.id ? { ...img, comments: [...(img.comments || []), data.comment] } : img
+    );
+    saveGallery();
+    io.emit('gallery-item-updated', data.id, { type: 'comment', comment: data.comment });
+  });
+
+  // Article Events
+  socket.on('add-article', (article) => {
+    articleItems.unshift(article);
+    saveArticles();
+    io.emit('article-added', article);
   });
 
   // Chat message relay
@@ -43,8 +101,10 @@ io.on('connection', (socket) => {
     
     console.log(`Message from ${data.message.sender} to ${to}`);
     
-    // Always broadcast so both tabs get the update if needed,
-    // or just send to specific target
+    // Save to history
+    messageHistory.push(data.message);
+    saveMessages();
+    
     if (targetSocket) {
       io.to(targetSocket).emit('receive-message', data.message);
     }
@@ -54,16 +114,21 @@ io.on('connection', (socket) => {
   socket.on('call-user', (data) => {
     const targetSocket = users[data.userToCall];
     if (targetSocket) {
+      console.log(`Relaying call from ${data.from} to ${data.userToCall}`);
       io.to(targetSocket).emit('call-made', {
         offer: data.offer,
-        from: data.from
+        from: data.from,
+        type: data.type
       });
+    } else {
+      console.log(`Call target ${data.userToCall} not found online`);
     }
   });
 
   socket.on('make-answer', (data) => {
     const targetSocket = users[data.to];
     if (targetSocket) {
+      console.log(`Relaying answer from ${data.from} to ${data.to}`);
       io.to(targetSocket).emit('answer-made', {
         answer: data.answer,
         from: data.from
@@ -107,6 +172,11 @@ io.on('connection', (socket) => {
   // Message modifications
   socket.on('delete-message', (data) => {
     const targetSocket = users[data.to];
+    
+    // Update history
+    messageHistory = messageHistory.filter(m => m.id !== data.messageId);
+    saveMessages();
+
     if (targetSocket) {
       io.to(targetSocket).emit('message-deleted', data.messageId);
     }
@@ -114,6 +184,11 @@ io.on('connection', (socket) => {
 
   socket.on('edit-message', (data) => {
     const targetSocket = users[data.to];
+    
+    // Update history
+    messageHistory = messageHistory.map(m => m.id === data.id ? { ...m, text: data.text, edited: true } : m);
+    saveMessages();
+
     if (targetSocket) {
       io.to(targetSocket).emit('message-edited', data);
     }
