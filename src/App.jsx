@@ -41,6 +41,7 @@ const App = () => {
   const [iceCandidates, setIceCandidates] = useState([])
   const [notifications, setNotifications] = useState([]) // { id, type, content, from }
   const [showNav, setShowNav] = useState(true)
+  const [isAtTop, setIsAtTop] = useState(true)
   const lastScrollY = useRef(0)
 
   // Call features state
@@ -255,6 +256,9 @@ const App = () => {
     const handleScroll = (e) => {
       const currentScrollY = e.target.scrollTop;
       
+      // Check if at the very top
+      setIsAtTop(currentScrollY <= 10);
+
       if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
         setShowNav(false);
       } else {
@@ -733,10 +737,11 @@ const App = () => {
         </AnimatePresence>
       </div>
 
-      {(isMobile && !window.matchMedia('(display-mode: standalone)').matches) && (
+      {(isMobile && isAtTop && !window.matchMedia('(display-mode: standalone)').matches) && (
         <motion.button 
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
+          exit={{ scale: 0 }}
           className="fab-install"
           style={{ position: 'fixed', bottom: '100px', right: '20px', zIndex: 99999 }}
           onClick={installApp}
