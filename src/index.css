@@ -1791,3 +1791,35 @@ body { background: #f1f5f9; height: 100vh; overflow: hidden; }
 }
 
 
+
+.fab-install {
+  position: fixed;
+  bottom: 100px;
+  right: 20px;
+  background: #26de81;
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 30px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  box-shadow: 0 10px 25px rgba(38, 222, 129, 0.4);
+  z-index: 9999;
+  cursor: pointer;
+}
+
+@media (min-width: 768px) {
+  .fab-install {
+    bottom: 30px;
+    right: 30px;
+  }
+}
+
+
+.fab-install.manual {
+  background: #64748b;
+  opacity: 0.8;
+}
+

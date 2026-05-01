@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import io from 'socket.io-client'
-import { Video, Phone, Send, LogOut } from 'lucide-react'
+import { Video, Phone, Send, LogOut, Download } from 'lucide-react'
 
 // Components
 import Sidebar from './components/Sidebar'
@@ -48,12 +48,22 @@ const App = () => {
   const [isVideoOff, setIsVideoOff] = useState(false)
   const [isScreenSharing, setIsScreenSharing] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
+  const [deferredPrompt, setDeferredPrompt] = useState(null)
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 
   const peerRef = useRef(null)
   const localStreamRef = useRef(null)
   const processedCandidatesCount = useRef(0)
   const remoteDescSet = useRef(false)
   const screenStreamRef = useRef(null)
+  
+  // Audio refs
+  const chatSound = useRef(new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3'))
+  const callSound = useRef(new Audio('https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3'))
+
+  useEffect(() => {
+    callSound.current.loop = true;
+  }, [])
 
   // Game state
   const [board, setBoard] = useState(Array(9).fill(null))
@@ -103,10 +113,27 @@ const App = () => {
 
     socket.on('receive-message', (msg) => {
       setMessages(prev => [...prev, msg])
-      if (activeTab !== 'chat') {
+      
+      // Play chat sound
+      chatSound.current.currentTime = 0;
+      chatSound.current.play().catch(e => console.log('Audio play failed:', e));
+
+      const isNotActiveTab = activeTab !== 'chat' || document.hidden;
+      
+      if (isNotActiveTab) {
         const id = Date.now()
         const content = msg.type === 'photostrip' ? 'Mengirim photostrip baru! 📸' : msg.text;
         setNotifications(prev => [...prev, { id, type: 'message', content, from: msg.sender }])
+        
+        // Show system notification
+        if (Notification.permission === 'granted') {
+          new Notification(`Pesan dari ${msg.sender}`, {
+            body: content,
+            icon: '/app-icon.png',
+            tag: `chat-${msg.id}`
+          });
+        }
+
         setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 5000)
       }
     })
@@ -155,13 +182,29 @@ const App = () => {
     
     socket.on('call-made', async (data) => {
       if (data.from === user.id) return;
+      
       setIncomingCall(data)
       setIsCaller(false)
+      
+      // Play call sound
+      callSound.current.currentTime = 0;
+      callSound.current.play().catch(e => console.log('Audio play failed:', e));
+
       const id = Date.now()
       setNotifications(prev => {
         if (prev.find(n => n.type === 'call')) return prev;
         return [...prev, { id, type: 'call', callData: data }];
       })
+
+      // Show system notification
+      if (Notification.permission === 'granted') {
+        new Notification('Panggilan Masuk', {
+          body: `${data.from} ingin ${data.type === 'video' ? 'VC' : 'Telpon'}`,
+          icon: '/app-icon.png',
+          tag: 'call-notification',
+          requireInteraction: true
+        });
+      }
     })
 
     socket.on('answer-made', async (data) => {
@@ -183,6 +226,16 @@ const App = () => {
 
     socket.on('call-ended', () => handleEndCall(false))
 
+    const handleBeforeInstallPrompt = (e) => {
+      // Only show install prompt on mobile
+      if (isMobile) {
+        e.preventDefault();
+        setDeferredPrompt(e);
+      }
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
     if (user) socket.emit('register', user.id)
     return () => { 
       socket.off('receive-message'); 
@@ -192,6 +245,7 @@ const App = () => {
       socket.off('answer-made');
       socket.off('ice-candidate');
       socket.off('call-ended');
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     }
   }, [user, activeTab])
 
@@ -316,6 +370,10 @@ const App = () => {
 
   const acceptCall = async (callData) => {
     try {
+      // Stop call sound
+      callSound.current.pause();
+      callSound.current.currentTime = 0;
+
       setIsCaller(false)
       setIncomingCall(callData)
       setIsCalling(callData.type)
@@ -337,6 +395,10 @@ const App = () => {
   }
 
   const handleEndCall = (emit = true) => {
+    // Stop call sound
+    callSound.current.pause();
+    callSound.current.currentTime = 0;
+
     if (emit) socket.emit('end-call', { to: getTargetUser() })
     if (localStreamRef.current) localStreamRef.current.getTracks().forEach(t => t.stop())
     if (screenStreamRef.current) screenStreamRef.current.getTracks().forEach(t => t.stop())
@@ -444,6 +506,16 @@ const App = () => {
 
   const getTargetUser = () => user?.id === 'katmut' ? 'betmut' : 'katmut'
 
+  const installApp = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
+
+
   const handleLogin = () => {
     const correctPassword = selectedChar === 'katmut' ? 'katak' : 'bebek'
     if (password.toLowerCase().trim() === correctPassword) {
@@ -453,6 +525,11 @@ const App = () => {
       socket.emit('login', selectedChar)
       setPbFrame(selectedChar === 'katmut' ? '#26de81' : '#fed330')
       setPbSelectedColor(selectedChar === 'katmut' ? 'Katmut' : 'Betmut')
+      
+      // Request notification permission
+      if ('Notification' in window) {
+        Notification.requestPermission();
+      }
     } else {
       setLoginError(`Salah nih, sandi ${selectedChar} bukan itu! ✨`)
     }
@@ -647,6 +724,18 @@ const App = () => {
           ))}
         </AnimatePresence>
       </div>
+
+      {deferredPrompt && isMobile && !window.matchMedia('(display-mode: standalone)').matches && (
+        <motion.button 
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          className="fab-install"
+          onClick={installApp}
+        >
+          <Download size={24} />
+          <span>Pasang App</span>
+        </motion.button>
+      )}
     </div>
   )
 }
