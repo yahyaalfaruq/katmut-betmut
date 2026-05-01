@@ -96,5 +96,33 @@
     "sender": "betmut",
     "id": 1777606010200,
     "time": "10:26:50 AM"
+  },
+  {
+    "id": "gallery-comment-1777614392323",
+    "sender": "betmut",
+    "text": "💬 Mengomentari \"Moment 1\": waww",
+    "time": "12:46 PM",
+    "type": "text"
+  },
+  {
+    "sender": "betmut",
+    "text": "🖼️ Mengomentari momen \"Moment 1\":\n\n\"waww\"",
+    "type": "text",
+    "id": 1777614392316,
+    "time": "12:46:32 PM"
+  },
+  {
+    "id": "gallery-comment-1777614425644",
+    "sender": "betmut",
+    "text": "💬 Mengomentari \"Moment 1\": hmvjhva",
+    "time": "12:47 PM",
+    "type": "text"
+  },
+  {
+    "sender": "betmut",
+    "text": "🖼️ Mengomentari momen \"Moment 1\":\n\n\"hmvjhva\"",
+    "type": "text",
+    "id": 1777614425620,
+    "time": "12:47:05 PM"
   }
 ]

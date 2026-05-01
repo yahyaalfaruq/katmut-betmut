@@ -4,7 +4,22 @@
     "url": "/images/gallery/gallery1.png",
     "title": "Moment 1",
     "likes": 12,
-    "comments": [],
+    "comments": [
+      {
+        "id": "betmut-1777614392314",
+        "sender": "Betmut",
+        "senderId": "betmut",
+        "text": "waww",
+        "time": "12:46 PM"
+      },
+      {
+        "id": "betmut-1777614425620",
+        "sender": "Betmut",
+        "senderId": "betmut",
+        "text": "hmvjhva",
+        "time": "12:47 PM"
+      }
+    ],
     "author": "Admin"
   },
   {

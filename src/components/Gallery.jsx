@@ -1,8 +1,8 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Heart, MessageCircle, X, Send, Plus, Camera, Image as ImageIcon, Trash2, Edit2, Check } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const Gallery = ({ galleryItems, user, socket }) => {
+const Gallery = ({ galleryItems, user, socket, sendMessage }) => {
   const [selectedImg, setSelectedImg] = useState(null)
   const [isCreating, setIsCreating] = useState(false)
   const [newImgData, setNewImgData] = useState({ title: '', image: null })
@@ -12,6 +12,15 @@ const Gallery = ({ galleryItems, user, socket }) => {
   const [editText, setEditText] = useState('')
   const emojis = ['❤️', '✨', '🔥', '👏', '🙌', '😍', '🐸', '🐤', '🌸', '🌈', '🍭', '🧁', '🎀', '🎈', '🎉']
   const fileInputRef = useRef(null)
+  const commentsEndRef = useRef(null)
+
+  const scrollToBottom = () => {
+    commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [selectedImg?.comments])
 
   const handleLike = (e, id) => {
     e.stopPropagation()
@@ -28,6 +37,14 @@ const Gallery = ({ galleryItems, user, socket }) => {
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
     socket.emit('comment-gallery-item', { id: selectedImg.id, comment })
+    
+    // Also send as a chat message
+    sendMessage({
+      sender: user.id,
+      text: `🖼️ Mengomentari momen "${selectedImg.title}":\n\n"${commentText}"`,
+      type: 'text' // Standard text message
+    })
+
     setCommentText('')
     setShowEmojis(false)
   }
@@ -80,7 +97,7 @@ const Gallery = ({ galleryItems, user, socket }) => {
 
   return (
     <div className="gallery-container">
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px' }}>
+      <div className="gallery-grid">
         {/* Create Button Card */}
         <motion.div 
           whileHover={{ scale: 1.02 }}
@@ -129,52 +146,70 @@ const Gallery = ({ galleryItems, user, socket }) => {
               layoutId={`img-${selectedImg.id}`} className="gallery-modal-content"
               onClick={(e) => e.stopPropagation()}
             >
-              <button className="modal-close" onClick={() => setSelectedImg(null)}><X size={24} /></button>
+              <button 
+                onClick={() => setSelectedImg(null)} 
+                className="modal-close-new"
+              >
+                <X size={24} />
+              </button>
               <div className="modal-body">
                 <div className="modal-image-container"><img src={selectedImg.url} alt={selectedImg.title} /></div>
                 <div className="modal-side">
                   <div className="modal-header">
-                    <h3>{selectedImg.title}</h3>
+                    <div className="modal-title-row">
+                      <h3>{selectedImg.title}</h3>
+                    </div>
                     <p className="modal-author">Posted by {selectedImg.author || 'Admin'}</p>
+                    <div className="modal-caption">
+                      {selectedImg.description || "Indahnya momen ini... ✨"}
+                    </div>
                   </div>
                   <div className="modal-comments">
                     {selectedImg.comments?.length > 0 ? (
-                      selectedImg.comments.map(c => (
-                        <div key={c.id} className={`comment-bubble-wrapper ${c.senderId === user.id ? 'own' : ''}`}>
-                          <div className="comment-bubble">
-                            <span className="comment-sender">{c.sender}</span>
-                            {editingComment === c.id ? (
-                              <div className="edit-comment-area">
-                                <input 
-                                  value={editText} 
-                                  onChange={(e) => setEditText(e.target.value)} 
-                                  onKeyPress={(e) => e.key === 'Enter' && handleSaveEdit(c.id)}
-                                  autoFocus
-                                  className="edit-input"
-                                />
-                                <div className="edit-actions">
-                                  <button onClick={() => handleSaveEdit(c.id)}><Check size={14} /></button>
-                                  <button onClick={() => setEditingComment(null)}><X size={14} /></button>
+                      <>
+                        {selectedImg.comments.map(c => (
+                          <div key={c.id} className={`comment-bubble-wrapper ${c.senderId === user.id ? 'own' : ''}`}>
+                            <div className="comment-bubble">
+                              <span className="comment-sender">{c.sender}</span>
+                              {editingComment === c.id ? (
+                                <div className="edit-comment-area">
+                                  <input 
+                                    value={editText} 
+                                    onChange={(e) => setEditText(e.target.value)} 
+                                    onKeyPress={(e) => e.key === 'Enter' && handleSaveEdit(c.id)}
+                                    autoFocus
+                                    className="edit-input"
+                                  />
+                                  <div className="edit-actions">
+                                    <button onClick={() => handleSaveEdit(c.id)}><Check size={14} /></button>
+                                    <button onClick={() => setEditingComment(null)}><X size={14} /></button>
+                                  </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <>
-                                <p className="comment-text">{c.text}{c.edited && <span className="edited-tag"> (edited)</span>}</p>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '5px' }}>
-                                  <span className="comment-time">{c.time}</span>
-                                  {c.senderId === user.id && (
-                                    <div className="comment-bubble-actions">
-                                      <Edit2 size={12} onClick={() => startEditComment(c)} />
-                                      <Trash2 size={12} onClick={() => handleDeleteComment(c.id)} />
-                                    </div>
-                                  )}
-                                </div>
-                              </>
-                            )}
+                              ) : (
+                                <>
+                                  <p className="comment-text">{c.text}{c.edited && <span className="edited-tag"> (edited)</span>}</p>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '5px' }}>
+                                    <span className="comment-time">{c.time}</span>
+                                    {c.senderId === user.id && (
+                                      <div className="comment-bubble-actions">
+                                        <Edit2 size={12} onClick={() => startEditComment(c)} />
+                                        <Trash2 size={12} onClick={() => handleDeleteComment(c.id)} />
+                                      </div>
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))
-                    ) : <p className="no-comments">Belum ada komentar. Jadi yang pertama! ✨</p>}
+                        ))}
+                        <div ref={commentsEndRef} />
+                      </>
+                    ) : (
+                      <div className="no-comments-container">
+                        <p className="no-comments">Belum ada komentar. Jadi yang pertama! ✨</p>
+                        <div ref={commentsEndRef} />
+                      </div>
+                    )}
                   </div>
                   <div className="modal-footer">
                     <div className="footer-actions">

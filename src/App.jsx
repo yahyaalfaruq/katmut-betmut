@@ -40,6 +40,8 @@ const App = () => {
   const [timer, setTimer] = useState(0)
   const [iceCandidates, setIceCandidates] = useState([])
   const [notifications, setNotifications] = useState([]) // { id, type, content, from }
+  const [showNav, setShowNav] = useState(true)
+  const lastScrollY = useRef(0)
 
   // Call features state
   const [isMuted, setIsMuted] = useState(false)
@@ -192,6 +194,34 @@ const App = () => {
       socket.off('call-ended');
     }
   }, [user, activeTab])
+
+  // Scroll detection for auto-hide nav
+  useEffect(() => {
+    const handleScroll = (e) => {
+      const currentScrollY = e.target.scrollTop;
+      
+      if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
+        setShowNav(false);
+      } else {
+        setShowNav(true);
+      }
+      lastScrollY.current = currentScrollY;
+    };
+
+    // We need to listen to all possible scroll areas
+    const scrollAreas = document.querySelectorAll('.scroll-area, .chat-messages, .gallery-modal-comments');
+    scrollAreas.forEach(el => el.addEventListener('scroll', handleScroll));
+    
+    const handleTouch = () => setShowNav(true);
+    document.addEventListener('touchstart', handleTouch);
+    document.addEventListener('mousedown', handleTouch);
+
+    return () => {
+      scrollAreas.forEach(el => el.removeEventListener('scroll', handleScroll));
+      document.removeEventListener('touchstart', handleTouch);
+      document.removeEventListener('mousedown', handleTouch);
+    }
+  }, [activeTab, isLoading]); // Re-run when tab changes or loading finishes
   
   useEffect(() => {
     if (user) {
@@ -544,15 +574,15 @@ const App = () => {
         </div>
       ) : (
         <>
-          <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+          <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} visible={showNav} />
           <main className="main-content">
             <Header user={user} setUser={setUser} onCall={startCall} />
             <div className="scroll-area" ref={scrollRef}>
               {activeTab === 'home' && <Home user={user} messagesCount={messages.length} tasks={tasks} setActiveTab={setActiveTab} onCall={startCall} galleryItems={galleryItems} />}
-              {activeTab === 'chat' && <Chat messages={messages} user={user} activeMessageMenu={activeMessageMenu} setActiveMessageMenu={setActiveMessageMenu} inputText={inputText} setInputText={setInputText} sendMessage={sendMessage} deleteMessage={deleteMessage} editMessage={editMessage} scrollRef={scrollRef} />}
+              {activeTab === 'chat' && <Chat messages={messages} user={user} activeMessageMenu={activeMessageMenu} setActiveMessageMenu={setActiveMessageMenu} inputText={inputText} setInputText={setInputText} sendMessage={sendMessage} deleteMessage={deleteMessage} editMessage={editMessage} scrollRef={scrollRef} navVisible={showNav} />}
               {activeTab === 'photobooth' && <Photobooth pbState={pbState} pbPhotos={pbPhotos} pbCount={pbCount} pbFrame={pbFrame} pbStickers={pbStickers} pbSelectedColor={pbSelectedColor} videoRef={videoRef} startPhotobooth={startPhotobooth} handleRetake={() => { setPbPhotos([]); setPbState('idle'); setTimeout(startPhotobooth, 100); }} toggleCamera={() => setFacingMode(f => f === 'user' ? 'environment' : 'user')} addSticker={(s) => setPbStickers([...pbStickers, { id: Date.now(), emoji: s, x: Math.random()*80, y: Math.random()*80 }])} frameColors={frameColors} stickers={stickers} user={user} getTargetUser={getTargetUser} sendMessage={sendMessage} setActiveTab={setActiveTab} facingMode={facingMode} pbFrameSet={{ set: (c, n) => { setPbFrame(c); setPbSelectedColor(n); } }} />}
               {activeTab === 'games' && <Games board={board} handleGameClick={handleGameClick} setBoard={setBoard} isXNext={isXNext} winner={calculateWinner(board)} />}
-              {activeTab === 'gallery' && <Gallery galleryItems={galleryItems} user={user} socket={socket} />}
+              {activeTab === 'gallery' && <Gallery galleryItems={galleryItems} user={user} socket={socket} sendMessage={sendMessage} />}
               {activeTab === 'articles' && <Articles articles={articleItems} user={user} socket={socket} />}
               {activeTab === 'history' && <div style={{ textAlign: 'center', opacity: 0.5, padding: '50px' }}>Belum ada riwayat panggilan.</div>}
             </div>

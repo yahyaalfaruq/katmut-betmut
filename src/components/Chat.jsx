@@ -3,7 +3,7 @@ import { Trash2, Paperclip, Send, Edit2, X, Check } from 'lucide-react'
 
 const Chat = ({ 
   messages, user, activeMessageMenu, setActiveMessageMenu, 
-  inputText, setInputText, sendMessage, deleteMessage, editMessage, scrollRef 
+  inputText, setInputText, sendMessage, deleteMessage, editMessage, scrollRef, navVisible 
 }) => {
   const [editingId, setEditingId] = useState(null)
   const [editText, setEditText] = useState('')
@@ -100,7 +100,7 @@ const Chat = ({
         </div>
       </div>
       
-      <div className="chat-input-bar">
+      <div className={`chat-input-bar ${!navVisible ? 'nav-hidden' : ''}`}>
         <div className="input-group">
           <Paperclip size={20} className="attach-icon" />
           <input 

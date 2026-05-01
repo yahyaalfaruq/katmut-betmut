@@ -103,6 +103,25 @@ io.on('connection', (socket) => {
     saveGallery();
     const updatedItem = galleryItems.find(img => img.id === data.id);
     io.emit('gallery-item-updated', data.id, { type: 'sync', item: updatedItem });
+
+    // Sync to Chat History
+    const chatMsg = {
+      id: `gallery-comment-${Date.now()}`,
+      sender: data.comment.senderId, // Use senderId (katmut/betmut) for consistency with chat
+      text: `💬 Mengomentari "${updatedItem.title}": ${data.comment.text}`,
+      time: data.comment.time,
+      type: 'text'
+    };
+    
+    messageHistory.push(chatMsg);
+    saveMessages();
+    
+    // Relay to the other user
+    const recipientId = data.comment.senderId === 'katmut' ? 'betmut' : 'katmut';
+    const targetSocket = users[recipientId];
+    if (targetSocket) {
+      io.to(targetSocket).emit('receive-message', chatMsg);
+    }
   });
 
   socket.on('delete-gallery-comment', (data) => {
