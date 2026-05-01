@@ -14,7 +14,7 @@ import Gallery from './components/Gallery'
 import Articles from './components/Articles'
 import CallOverlay from './components/CallOverlay'
 
-const socket = io('http://localhost:3001')
+const socket = io(window.location.hostname === 'localhost' ? 'http://localhost:3001' : window.location.origin)
 
 const App = () => {
   const [user, setUser] = useState(() => {
